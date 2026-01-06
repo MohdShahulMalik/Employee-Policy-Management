@@ -5,13 +5,12 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import type { FormFields } from "../types/utils";
+import type { FormFieldConfig, Employee } from "../types";
 import Button from "./Button";
 import clsx from "clsx";
-import type { Employees } from "../types/tables";
 
 interface ModalProps {
-  config: FormFields[];
+  config: FormFieldConfig[];
   className?: string;
   heading:
     | "Add Employees"
@@ -21,7 +20,7 @@ interface ModalProps {
   onClick: (formData: Record<string, string>) => void;
   initialData?: Record<string, string>;
   disabled?: boolean;
-  employees?: Employees[]
+  employees?: Employee[];
 }
 
 export interface ModalHandle {
@@ -30,7 +29,7 @@ export interface ModalHandle {
 
 const Modal = forwardRef<ModalHandle, ModalProps>((props, ref) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
-  const clientClassName = `${props.className || ""}.trim()`;
+  const clientClassName = `${props.className || ""}`.trim();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const buttonText = props.heading.split(" ")[0];
 
@@ -38,6 +37,8 @@ const Modal = forwardRef<ModalHandle, ModalProps>((props, ref) => {
     open: (initialData?: Record<string, string>) => {
       if (initialData) {
         setFormData(initialData);
+      } else {
+        setFormData({});
       }
       dialogRef.current?.showModal();
     },
@@ -57,9 +58,9 @@ const Modal = forwardRef<ModalHandle, ModalProps>((props, ref) => {
     }));
   };
 
-  const renderField = (field: FormFields, index: number) => {
+  const renderField = (field: FormFieldConfig, index: number) => {
     const inputClasses =
-      "w-full px-3 py-2 border border-border-default rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors";
+      "w-full px-3 py-2 border border-border-default rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors text-foreground";
 
     switch (field.type) {
       case "select":
@@ -104,29 +105,32 @@ const Modal = forwardRef<ModalHandle, ModalProps>((props, ref) => {
             />
           );
         } else if (
-          props.heading.split(" ")[1] === "Policies" && props.heading.split(" ")[0] === "Add" &&
-          (field.name === "name" || field.name === "employee_id")
+          props.heading.split(" ")[1] === "Policies" &&
+          props.heading.split(" ")[0] === "Add" &&
+          field.name === "name"
         ) {
           const listId = `${field.name}-suggestions`;
           return (
             <>
               <input
-                className={clsx(inputClasses, "bg-surface-700", "hide-datalist-arrow")}
+                className={clsx(
+                  inputClasses,
+                  "bg-surface-700",
+                  "hide-datalist-arrow",
+                )}
                 type={field.type}
                 value={formData[index] || ""}
                 onChange={(e) => handleChange(index, e.target.value)}
                 list={listId}
                 required
               />
-              {field.name === "name" && (
-                <datalist id={listId}>
-                  {props.employees?.map((e, i) => (
-                    <option key={i}>
-                      {e.name.first_name} {e.name.last_name}
-                    </option>
-                  ))}
-                </datalist>
-              )}
+              <datalist id={listId}>
+                {props.employees?.map((e, i) => (
+                  <option key={i}>
+                    {e.name.first_name} {e.name.last_name}
+                  </option>
+                ))}
+              </datalist>
             </>
           );
         }
@@ -154,7 +158,7 @@ const Modal = forwardRef<ModalHandle, ModalProps>((props, ref) => {
       <h1 className="text-[1.25rem] font-bold">{props.heading}</h1>
       <hr className="my-4" />
       <form className="grid gap-3" onSubmit={handleSubmit}>
-        {props.config.map((field: FormFields, index: number) => (
+        {props.config.map((field: FormFieldConfig, index: number) => (
           <div className="grid gap-1" key={index}>
             <label>{field.label}</label>
             {renderField(field, index)}
@@ -215,7 +219,7 @@ const ConfirmModal = forwardRef<ConfirmModalHandle, ConfirmModalProps>(
               type="button"
               onClick={() => dialogRef.current?.close()}
             />
-            <Button text="Delete" size="medium" type="submit" />
+            <Button text="Delete" size="medium" type="submit" danger />
           </article>
         </form>
       </dialog>

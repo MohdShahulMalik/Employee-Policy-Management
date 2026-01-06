@@ -3,7 +3,7 @@ import "../styles/dashboard.css";
 import styles from "../styles/card.module.css";
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { type Count } from "../types/response";
+import type { CountResponse } from "../types";
 import "@flaticon/flaticon-uicons/css/all/all.css";
 import Button from "../components/Button";
 import { NavLink } from "react-router-dom";
@@ -15,10 +15,10 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const employeeCountPromise = axios.get<Count>(
+    const employeeCountPromise = axios.get<CountResponse>(
       "http://localhost:3100/employees/count",
     );
-    const policyCountPromise = axios.get<Count>(
+    const policyCountPromise = axios.get<CountResponse>(
       "http://localhost:3100/policies/count",
     );
 

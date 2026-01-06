@@ -31,7 +31,7 @@ pub fn run (listener: TcpListener) -> Result<Server, std::io::Error> {
                     .route("", web::get().to(get_policy))
                     .route("", web::post().to(add_policy))
                     .route("/count", web::get().to(get_policy_no))
-                    .route("/{id}", web::put().to(update_policy))
+                    .route("/{id}", web::patch().to(update_policy))
                     .route("/{id}", web::delete().to(delete_policy))
             )
     })

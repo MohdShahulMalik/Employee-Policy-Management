@@ -2,19 +2,21 @@ use actix_web::{web, HttpResponse};
 use crate::{
     database::initialize::get_db,
     error::AppError,
-    models::{policy::{Policy, PolicyData}, utils::Count},
+    models::{policy::{Policy, PolicyData, PolicyId}, utils::Count},
 };
 
 pub async fn add_policy(policy: web::Json<PolicyData>) -> Result<HttpResponse, AppError> {
     let policy_data: PolicyData = policy.into_inner();
     let db = get_db();
 
-    let _: Option<Policy> = db.create("policies")
+    let policy_option: Option<Policy> = db.create("policies")
         .content(policy_data)
         .await
         .map_err(|e| AppError::DatabaseError(Box::new(e)))?;
+    let policy_record = policy_option.ok_or(AppError::NotExists)?;
+    let policy_id = PolicyId { id: policy_record.id };
 
-    Ok(HttpResponse::Ok().body("Policy Added Successfully"))
+    Ok(HttpResponse::Created().json(policy_id))
 }
 
 pub async fn delete_policy(id: web::Path<String>) -> Result<HttpResponse, AppError> {

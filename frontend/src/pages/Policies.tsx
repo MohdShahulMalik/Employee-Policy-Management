@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { useRef, useState, useEffect, type ChangeEvent } from "react";
 import Modal, {
   type ModalHandle,
   ConfirmModal,
@@ -9,79 +9,92 @@ import Button from "../components/Button";
 import { policyFormConfig } from "../utils/formConfig";
 import Header from "../components/Header";
 import Table from "../components/Table";
-import { v4 as uuidv4 } from "uuid";
-import type { Employees, Policies } from "../types/tables";
-import type { RecordId } from "../types/utils";
+import type { Employee } from "../types";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  fetchPolicies,
+  createPolicy,
+  updatePolicyAsync,
+  deletePolicyAsync,
+} from "../store/policiesSlice";
+import { fetchEmployees } from "../store/employeesSlice";
 
-interface PoliciesProps {
-  policiesData: Policies[];
-  setPoliciesData: Dispatch<SetStateAction<Policies[]>>;
-  employeesData: Employees[];
-}
-
-export default function Policies(props: PoliciesProps) {
+export default function Policies() {
   const [searchParams] = useSearchParams();
   const userId = searchParams.get("userId");
 
-  const policiesData = props.policiesData;
-  const setPoliciesData = props.setPoliciesData;
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
+  const dispatch = useAppDispatch();
+  const { data: policiesData, loading, error } = useAppSelector(
+    (state) => state.policies
+  );
+  const employeesData = useAppSelector((state) => state.employees.data);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const addPolicyModalRef = useRef<ModalHandle>(null);
   const editPolicyModalRef = useRef<ModalHandle>(null);
   const deletingPolicyModalRef = useRef<ConfirmModalHandle>(null);
 
+  useEffect(() => {
+    dispatch(fetchPolicies());
+    dispatch(fetchEmployees());
+  }, [dispatch]);
+
   const handleAddingPolicies = (formData: Record<string, string>) => {
-    const first_name = formData["0"].split(" ")[0];
-    const last_name = formData["0"].split(" ")[1];
-    const employee = props.employeesData.find((e) => {
+    const emp_first_name = formData["0"].split(" ")[0];
+    const emp_last_name = formData["0"].split(" ")[1] || "";
+    const employee = employeesData.find((e: Employee) => {
       const name = e.name.first_name + e.name.last_name;
-      return name === (first_name + last_name);
+      return name === emp_first_name + emp_last_name;
     });
-    const employeeId = employee?.id as RecordId;
-    const newRecord: Policies = {
-      id: {
-        tb: "policies",
-        id: {
-          String: uuidv4(),
-        },
-      },
-      employeeId,
+
+    if (!employee) {
+      console.log("Error, no employee found");
+      return;
+    }
+
+    const first_name = formData["1"].split(" ")[0];
+    const last_name = formData["1"].split(" ")[1] || "";
+    
+
+    const policyData = {
       name: {
         first_name,
         last_name,
       },
-      plan: formData["1"],
-      status: formData["2"],
-      effective_date: formData["3"],
+      employee_id: employee.id,
+      plan: formData["2"],
+      status: formData["3"],
+      effective_date: formData["4"],
     };
-    setPoliciesData((prev) => [...prev, newRecord]);
+    dispatch(createPolicy(policyData));
   };
 
   const handleEditingPolicy = (formData: Record<string, string>) => {
-    if (editingIndex === null) return;
+    if (editingId === null) return;
 
-    setPoliciesData((prev) => {
-      prev[editingIndex].name = {
-        first_name: formData["0"],
-        last_name: formData["1"],
-      };
-      prev[editingIndex].plan = formData["3"];
-      prev[editingIndex].status = formData["4"];
-      prev[editingIndex].effective_date = formData["5"];
-      return [...prev];
-    });
+    const data = {
+      name: {
+        first_name: formData["1"].split(" ")[0],
+        last_name: formData["1"].split(" ")[1] || "",
+      },
+      plan: formData["2"],
+      status: formData["3"],
+      effective_date: formData["4"],
+    };
+    dispatch(updatePolicyAsync({ id: editingId, data }));
   };
 
   const handleOpenAddPolicyModal = () => {
-      addPolicyModalRef.current?.open();
+    addPolicyModalRef.current?.open();
   };
 
-  const handleOpenEditPolicyModal = (index: number) => {
-    setEditingIndex(index);
-    const policy = policiesData[index];
+  const handleOpenEditPolicyModal = (id: string) => {
+    setEditingId(id);
+    const policy = policiesData.find((p) => p.id.id.String === id);
+    if (!policy) return;
+
     const initialData = {
       "0": policy.name.first_name + " " + policy.name.last_name,
       "1": policy.plan,
@@ -91,15 +104,15 @@ export default function Policies(props: PoliciesProps) {
     editPolicyModalRef.current?.open(initialData);
   };
 
-  const handleOpenDeletionModal = (index: number) => {
-    setDeletingIndex(index);
+  const handleOpenDeletionModal = (id: string) => {
+    setDeletingId(id);
     deletingPolicyModalRef.current?.open();
   };
 
   const handleDeletion = () => {
-    setPoliciesData((prev) => {
-      return prev.filter((_, i) => i !== deletingIndex);
-    });
+    if (deletingId !== null) {
+      dispatch(deletePolicyAsync(deletingId));
+    }
   };
 
   const onSearchInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -121,10 +134,18 @@ export default function Policies(props: PoliciesProps) {
 
     const statusMatch = statusFilter === "" || policy.status === statusFilter;
 
-    const userMatch = !userId || policy.employeeId.id.String === userId;
+    const userMatch = !userId || policy.employee_id.id.String === userId;
 
     return searchMatch && statusMatch && userMatch;
   });
+
+  if (loading && policiesData.length === 0) {
+    return <div className="p-8 text-center text-foreground">Loading policies...</div>;
+  }
+
+  if (error) {
+    return <div className="p-8 text-center text-red-500">Error: {error}</div>;
+  }
 
   return (
     <section className="overflow-hidden rounded-4xl border-4 border-border-default bg-surface-700">
@@ -162,7 +183,7 @@ export default function Policies(props: PoliciesProps) {
         ref={addPolicyModalRef}
         config={policyFormConfig}
         onClick={handleAddingPolicies}
-        employees={props.employeesData}
+        employees={employeesData}
       />
       <Modal
         heading="Edit Policies"

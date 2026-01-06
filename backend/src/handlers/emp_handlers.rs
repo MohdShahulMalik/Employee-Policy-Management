@@ -2,19 +2,21 @@ use actix_web::{web, HttpResponse};
 use crate::{
     database::initialize::get_db,
     error::AppError,
-    models::{emp::{Employee, EmployeeData}, utils::Count},
+    models::{emp::{Employee, EmployeeData, EmployeeId}, utils::Count},
 };
 
 pub async fn add_emp(emp: web::Json<EmployeeData>) -> Result<HttpResponse, AppError> {
     let emp_data: EmployeeData = emp.into_inner();
     let db = get_db();
 
-    let _: Option<Employee> = db.create("employees")
+    let emp_record_option: Option<Employee> = db.create("employees")
         .content(emp_data)
         .await
         .map_err(|e| AppError::DatabaseError(Box::new(e)))?;
+    let emp_record = emp_record_option.ok_or(AppError::NotExists)?;
+    let emp_id = EmployeeId { id: emp_record.id };
 
-    Ok(HttpResponse::Ok().body("Employee Added Successfully"))
+    Ok(HttpResponse::Created().json(emp_id))
 }
 
 pub async fn delete_emp(id: web::Path<String>) -> Result<HttpResponse, AppError> {

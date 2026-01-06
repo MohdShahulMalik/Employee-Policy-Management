@@ -18,4 +18,5 @@ frontend/*.local
 
 .helix/
 frontend/NOTES.md
-.aye
+NOTES.md
+.aye/

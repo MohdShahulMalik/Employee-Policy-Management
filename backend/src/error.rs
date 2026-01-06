@@ -9,6 +9,9 @@ pub enum AppError{
     #[error("Some internal server error occurred")]
     Internal,
 
+    #[error("Requested data doesn't exists on the database")]
+    NotExists,
+
     #[error("Incorrect Data: {0}")]
     IncorrectDataFormat(String),
 }
@@ -19,6 +22,8 @@ impl ResponseError for AppError {
             AppError::DatabaseError(e) => HttpResponse::InternalServerError().body(format!("Database Error: {e}")),
 
             AppError::Internal => HttpResponse::InternalServerError().body("Some internal error occured"),
+
+            AppError::NotExists => HttpResponse::NotFound().body("Requested data doesn't exists on the database"),
 
             AppError::IncorrectDataFormat(msg) => HttpResponse::BadRequest().body(format!("Incorrect Data: {msg}"))
         }

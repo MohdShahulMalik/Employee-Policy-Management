@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { useRef, useState, useEffect, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal, {
   type ModalHandle,
@@ -9,34 +9,34 @@ import Button from "../components/Button";
 import { employeeFormConfig } from "../utils/formConfig";
 import Header from "../components/Header";
 import Table from "../components/Table";
-import { v4 as uuidv4 } from "uuid";
-import type { Employees } from "../types/tables";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  fetchEmployees,
+  createEmployee,
+  updateEmployeeAsync,
+  deleteEmployeeAsync,
+} from "../store/employeesSlice";
 
-interface EmployeesProps {
-  employeesData: Employees[];
-  setEmployeesData: Dispatch<SetStateAction<Employees[]>>; 
-}
-
-export default function Employees(props: EmployeesProps) {
+export default function Employees() {
   const navigate = useNavigate();
-  const employeesData = props.employeesData;
-  const setEmployeesData = props.setEmployeesData;
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
+  const dispatch = useAppDispatch();
+  const { data: employeesData, loading, error } = useAppSelector(
+    (state) => state.employees
+  );
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("");
   const addEmployeeModalRef = useRef<ModalHandle>(null);
   const editEmployeeModalRef = useRef<ModalHandle>(null);
   const deletingEmployeeModalRef = useRef<ConfirmModalHandle>(null);
 
+  useEffect(() => {
+    dispatch(fetchEmployees());
+  }, [dispatch]);
+
   const handleAddingEmployees = (formData: Record<string, string>) => {
-    const newRecord: Employees = {
-      id: {
-        tb: "employees",
-        id: {
-          String: uuidv4(),
-        },
-      },
+    const employeeData = {
       name: {
         first_name: formData["0"],
         last_name: formData["1"],
@@ -44,30 +44,32 @@ export default function Employees(props: EmployeesProps) {
       email: formData["2"],
       role: formData["3"],
     };
-    setEmployeesData((prev) => [...prev, newRecord]);
+    dispatch(createEmployee(employeeData));
   };
 
   const handleEditingEmployee = (formData: Record<string, string>) => {
-    if (editingIndex === null) return;
+    if (editingId === null) return;
 
-    setEmployeesData((prev) => {
-      prev[editingIndex].name = {
+    const data = {
+      name: {
         first_name: formData["0"],
         last_name: formData["1"],
-      };
-      prev[editingIndex].email = formData["2"];
-      prev[editingIndex].role = formData["3"];
-      return [...prev];
-    });
+      },
+      email: formData["2"],
+      role: formData["3"],
+    };
+    dispatch(updateEmployeeAsync({ id: editingId, data }));
   };
 
   const handleOpenAddEmployeeModal = () => {
     addEmployeeModalRef.current?.open();
   };
 
-  const handleOpenEditEmployeeModal = (index: number) => {
-    setEditingIndex(index);
-    const employee = employeesData[index];
+  const handleOpenEditEmployeeModal = (id: string) => {
+    setEditingId(id);
+    const employee = employeesData.find((e) => e.id.id.String === id);
+    if (!employee) return;
+
     const initialData = {
       "0": employee.name.first_name,
       "1": employee.name.last_name,
@@ -77,15 +79,15 @@ export default function Employees(props: EmployeesProps) {
     editEmployeeModalRef.current?.open(initialData);
   };
 
-  const handleOpenDeletionModal = (index: number) => {
-    setDeletingIndex(index);
+  const handleOpenDeletionModal = (id: string) => {
+    setDeletingId(id);
     deletingEmployeeModalRef.current?.open();
   };
 
   const handleDeletion = () => {
-    setEmployeesData((prev) => {
-      return prev.filter((_, i) => i !== deletingIndex);
-    });
+    if (deletingId !== null) {
+      dispatch(deleteEmployeeAsync(deletingId));
+    }
   };
 
   const onSearchInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -96,9 +98,8 @@ export default function Employees(props: EmployeesProps) {
     setRoleFilter(e.target.value);
   };
 
-  const handleViewPolicies = (index: number) => {
-    const employee = employeesData[index];
-    navigate(`/policy-search?userId=${employee.id.id.String}`);
+  const handleViewPolicies = (id: string) => {
+    navigate(`/policy-search?userId=${id}`);
   };
 
   const filteredEmployeesData = employeesData.filter((employee) => {
@@ -113,6 +114,14 @@ export default function Employees(props: EmployeesProps) {
 
     return searchMatch && roleMatch;
   });
+
+  if (loading && employeesData.length === 0) {
+    return <div className="p-8 text-center text-foreground">Loading employees...</div>;
+  }
+
+  if (error) {
+    return <div className="p-8 text-center text-red-500">Error: {error}</div>;
+  }
 
   return (
     <section className="overflow-hidden rounded-4xl border-4 border-border-default bg-surface-700">
