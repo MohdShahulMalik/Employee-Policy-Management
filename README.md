@@ -26,7 +26,7 @@ A full-stack application designed to streamline the management of company employ
 *   **High Performance:** Backend built with Rust for optimal speed and safety.
 *   **Modern Database:** Utilizes SurrealDB for flexible data modeling and real-time capabilities.
 *   **State Management:** Frontend uses Redux Toolkit for efficient global state handling.
-*   **Responsive Design:** Styled with Tailwind CSS v4 to ensure a seamless experience across devices.
+*   **Modern Styling:** Styled with Tailwind CSS v4 for efficient styling.
 *   **Theming:** Supports light and dark modes with modern color palettes.
 
 ---
